@@ -25,3 +25,10 @@
 # ===========================================
 
 # YOUR CODE HERE:
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+
+# END OF YOUR CODE
