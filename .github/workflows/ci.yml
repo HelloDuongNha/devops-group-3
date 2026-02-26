@@ -2,45 +2,109 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, develop ]
-  workflow_dispatch:
+    branches: [ main ]
 
 jobs:
   build-and-test:
+    name: Build & Test
     runs-on: ubuntu-latest
 
+    services:
+      db:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: tododb
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-    # 1. Checkout: Get the code from GitHub
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    # 2. Setup: Install Node.js runtime
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: './backend/package-lock.json'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
 
-    # 3. Install: Download all dependencies
-    - name: Install dependencies
-      working-directory: ./backend
-      run: npm ci --prefer-offline --no-audit
+      - name: Install dependencies
+        run: cd backend && npm ci 
 
-    # 4. Test: Run all tests
-    - name: Run tests
-      working-directory: ./backend
-      run: npm test -- --passWithNoTests
+      - name: Initialize database
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -d tododb -f database/database.sql
 
-    # 5. Lint: Check code quality (only on PR)
-    - name: Run linter (code style)
-      if: github.event_name == 'pull_request'
-      working-directory: ./backend
-      run: npm run lint
+      - name: Run tests
+        run: cd backend && npm test
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: tododb
+          DB_USER: postgres
+          DB_PASSWORD: postgres
 
-    # 6. Build: Prepare for production
-    - name: Build application
-      working-directory: ./backend
-      run: npm run build
+      - name: Log in to Docker Hub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      - name: Build and push Backend image
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/todo-backend:latest
+
+      - name: Build and push Frontend image
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/todo-frontend:latest
+
+  deploy:
+    name: Deploy to Server
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Install cloudflared
+        run: |
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared-linux-amd64.deb
+
+      - name: Deploy to Local Production via Cloudflare TCP Tunnel
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+        run: |
+          mkdir -p ~/.ssh
+
+          cat <<< "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          echo "Host $SSH_HOST" > ~/.ssh/config
+          echo "  ProxyCommand cloudflared access ssh --hostname %h" >> ~/.ssh/config
+          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+          curl -I -s https://$SSH_HOST
+          
+          ssh -i ~/.ssh/id_rsa "$SSH_USERNAME"@$SSH_HOST "cd /mnt/d/Devops/devops-project-fork && git pull origin main && sudo docker compose pull && sudo docker compose up -d"
+          
