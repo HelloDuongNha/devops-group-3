@@ -59,4 +59,3 @@ jobs:
         DB_NAME: tododb
         DB_USER: postgres
         DB_PASSWORD: postgres123
-
