@@ -43,12 +43,17 @@ services:
   # STUDENT TODO: Define frontend service
   frontend:
     build: ./frontend
-    # TODO: Add ports, depends_on
+    # Add ports, depends_on
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
 
   # STUDENT TODO: Define backend service
   backend:
     build: ./backend
-    # TODO: Add ports, environment, depends_on, healthcheck
+    # Add ports, environment, depends_on, healthcheck
     ports:
       - "8080:8080"
     environment:
@@ -69,7 +74,7 @@ services:
   # STUDENT TODO: Define postgres service
   postgres:
     image: postgres:15-alpine
-    # TODO: Add environment, ports, volumes, healthcheck
+    # Add environment, ports, volumes, healthcheck
     environment:
       POSTGRES_DB: tododb
       POSTGRES_USER: postgres

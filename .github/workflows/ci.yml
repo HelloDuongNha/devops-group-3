@@ -59,3 +59,12 @@ jobs:
         DB_NAME: tododb
         DB_USER: postgres
         DB_PASSWORD: postgres123
+
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    needs: build-and-test # Chờ build image xong mới deploy
+    if: github.ref == 'refs/heads/main' # Chỉ chạy khi merge vào main
+    steps:
+      - name: Trigger Render Deployment
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
