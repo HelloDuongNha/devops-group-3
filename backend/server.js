@@ -11,11 +11,11 @@ app.use(express.json());
 
 // BUG #1: Wrong default password - doesn't match docker-compose!
 const pool = new Pool({
-   user: process.env.DB_USER,
-   host: process.env.DB_HOST,
-   database: process.env.DB_NAME,
-   password: process.env.DB_PASSWORD,
-   port: process.env.DB_PORT,
+   user: process.env.DB_USER || 'postgres',
+   host: process.env.DB_HOST || 'localhost',
+   database: process.env.DB_NAME || 'tododb',
+   password: process.env.DB_PASSWORD || 'postgres123',
+   port: process.env.DB_PORT || 5432,
 });
 
 app.get('/health', (req, res) => {
@@ -68,7 +68,7 @@ app.delete('/api/todos/:id', async (req, res) => {
          return res.status(404).json({ error: 'Todo not found' });
       }
 
-      res.json(result.rows[0]);
+      res.status(200).json(result.rows[0]);
    } catch (err) {
       res.status(500).json({ error: err.message });
    }
