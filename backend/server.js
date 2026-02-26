@@ -61,6 +61,56 @@ app.post('/api/todos', async (req, res) => {
 
 // BUG #4: Missing PUT endpoint for updating todos
 // STUDENT TODO: Implement PUT /api/todos/:id endpoint
+// PUT todo - update title and/or completed status
+app.put('/api/todos/:id', async (req, res) => {
+   try {
+      const { id } = req.params;
+      const { title, completed } = req.body;
+      
+      // Validation: nếu title được update, không được rỗng
+      if (title !== undefined && (!title || title.trim() === '')) {
+         return res.status(400).json({ error: 'Title cannot be empty' });
+      }
+      
+      // Build dynamic update query (chỉ update fields được gửi)
+      let updateFields = [];
+      let values = [id];
+      let paramCount = 2;
+      
+      if (title !== undefined) {
+         updateFields.push(`title = $${paramCount}`);
+         values.push(title);
+         paramCount++;
+      }
+      
+      if (completed !== undefined) {
+         updateFields.push(`completed = $${paramCount}`);
+         values.push(completed);
+         paramCount++;
+      }
+      
+      if (updateFields.length === 0) {
+         return res.status(400).json({ error: 'At least one field must be updated' });
+      }
+      
+      const query = `
+         UPDATE todos 
+         SET ${updateFields.join(', ')}
+         WHERE id = $1 
+         RETURNING *
+      `;
+      
+      const result = await pool.query(query, values);
+      
+      if (result.rows.length === 0) {
+         return res.status(404).json({ error: 'Todo not found' });
+      }
+      
+      res.status(200).json(result.rows[0]);
+   } catch (err) {
+      res.status(500).json({ error: err.message });
+   }
+});
 
 const port = process.env.PORT || 8080;
 
