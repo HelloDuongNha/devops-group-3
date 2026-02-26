@@ -2,85 +2,88 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [ main, develop ]
   pull_request:
-    branches: [main]
+    branches: [ main, develop ]
+  workflow_dispatch:
 
 jobs:
   build-and-test:
-    name: Build & Test
     runs-on: ubuntu-latest
 
     services:
       db:
         image: postgres:15-alpine
         env:
+          POSTGRES_DB: tododb
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres123
-          POSTGRES_DB: tododb
         ports:
           - 5432:5432
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    # 1. Checkout: Get the code from GitHub
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "18"
-          cache: "npm"
-          cache-dependency-path: "backend/package-lock.json"
+    # 2. Setup: Install Node.js runtime
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
 
-      - name: Install dependencies
-        working-directory: ./backend
-        run: npm install
+    # 3. Install: Download all dependencies
+    - name: Install dependencies
+      working-directory: ./backend
+      run: npm install --no-audit
 
-      - name: Initialize database
-        run: |
-          sudo apt-get update && sudo apt-get install -y postgresql-client
-          PGPASSWORD=postgres123 psql -h localhost -U postgres -d tododb -f database/database.sql
+    - name: Install PostgreSQL client
+      run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
-      - name: Run tests
+    - name: Initialize database
+      run: PGPASSWORD=postgres123 psql -h localhost -U postgres -d tododb -f database/database.sql
+
+    # 4. Test: Run all tests
+    - name: Run tests
         working-directory: ./backend
         run: npm test
         env:
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USER: postgres
-          DB_PASSWORD: postgres123
-          DB_NAME: tododb
+        NODE_ENV: test
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_USER: postgres
+        DB_PASSWORD: postgres123
+        DB_NAME: tododb
 
-      # Step 5: Log in to Docker Hub
-      - name: Log in to Docker Hub
-        if: github.ref == 'refs/heads/main'
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+    # Step 5: Log in to Docker Hub
+    - name: Log in to Docker Hub
+      if: github.ref == 'refs/heads/main'
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 6: Build and push Docker images
-      - name: Build and push Backend image
-        if: github.ref == 'refs/heads/main'
-        uses: docker/build-push-action@v4
-        with:
-          context: ./backend
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/devops-group-36-backend:latest
+    # Step 6: Build and push Docker images
+    - name: Build and push Backend image
+      if: github.ref == 'refs/heads/main'
+      uses: docker/build-push-action@v4
+      with:
+        context: ./backend
+        push: true
+        tags: ${{ secrets.DOCKER_USERNAME }}/devops-group-36-backend:latest
 
-      - name: Build and push Frontend image
-        if: github.ref == 'refs/heads/main'
-        uses: docker/build-push-action@v4
-        with:
-          context: ./frontend
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/devops-group-36-frontend:latest
-
-  deploy:
-    name: Deploy to Render
-    runs-on: ubuntu-latest
-    needs: build-and-test
+    - name: Build and push Frontend image
+      if: github.ref == 'refs/heads/main'
+      uses: docker/build-push-action@v4
+      with:
+        context: ./frontend
+        push: true
+        tags: ${{ secrets.DOCKER_USERNAME }}/devops-group-36-frontend:latest
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Trigger Render Deployment
