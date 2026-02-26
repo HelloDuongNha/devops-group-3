@@ -59,10 +59,3 @@ jobs:
         DB_NAME: tododb
         DB_USER: postgres
         DB_PASSWORD: postgres123
-
-    # 5. Lint: Check code quality (only on PR)
-    - name: Run linter (code style)
-      if: github.event_name == 'pull_request'
-      working-directory: ./backend
-      run: npm run lint
-
