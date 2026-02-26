@@ -2,6 +2,7 @@ const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
 const helmet = require('helmet');
+require('dotenv').config();
 
 const app = express();
 app.use(helmet());
@@ -13,7 +14,7 @@ const pool = new Pool({
    user: process.env.DB_USER || 'postgres',
    host: process.env.DB_HOST || 'localhost',
    database: process.env.DB_NAME || 'tododb',
-   password: process.env.DB_PASSWORD || 'wrongpassword',
+   password: process.env.DB_PASSWORD || 'postgres123',
    port: process.env.DB_PORT || 5432,
 });
 
