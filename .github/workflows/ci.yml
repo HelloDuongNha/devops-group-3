@@ -60,11 +60,51 @@ jobs:
         DB_USER: postgres
         DB_PASSWORD: postgres123
 
+  docker-build-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/devops-group-36-backend:latest
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/devops-group-36-backend:cache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/devops-group-36-backend:cache,mode=max
+
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/devops-group-36-frontend:latest
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/devops-group-36-frontend:cache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/devops-group-36-frontend:cache,mode=max
+
   deploy:
     name: Deploy to Render
     runs-on: ubuntu-latest
-    needs: build-and-test # Chờ build image xong mới deploy
-    if: github.ref == 'refs/heads/main' # Chỉ chạy khi merge vào main
+    needs: docker-build-push
+    if: github.ref == 'refs/heads/main'
     steps:
       - name: Trigger Render Deployment
         run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
