@@ -2,6 +2,7 @@ const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
 const helmet = require('helmet');
+require('dotenv').config();
 
 const app = express();
 app.use(helmet());
@@ -38,8 +39,12 @@ app.post('/api/todos', async (req, res) => {
       const { title, completed = false } = req.body;
 
       // STUDENT FIX: Add validation here!
+      if (!title || title.trim() === '') {
+         return res.status(400).json({ error: 'Title is required and cannot be empty' });
+      }
       // Hint: Check if title is empty or undefined
       // Return 400 status with error message if invalid
+      
 
       const result = await pool.query(
          'INSERT INTO todos(title, completed) VALUES($1, $2) RETURNING *',
