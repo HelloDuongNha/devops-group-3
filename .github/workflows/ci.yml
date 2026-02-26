@@ -27,7 +27,7 @@ jobs:
     # 3. Install: Download all dependencies
     - name: Install dependencies
       working-directory: ./backend
-      run: npm ci --prefer-offline --no-audit
+      run: npm install --no-audit
 
     # 4. Test: Run all tests
     - name: Run tests
