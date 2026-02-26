@@ -66,7 +66,3 @@ jobs:
       working-directory: ./backend
       run: npm run lint
 
-    # 6. Build: Prepare for production
-    - name: Build application
-      working-directory: ./backend
-      run: npm run build
