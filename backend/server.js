@@ -2,6 +2,7 @@ const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
 const helmet = require('helmet');
+require('dotenv').config();
 
 const app = express();
 app.use(helmet());
