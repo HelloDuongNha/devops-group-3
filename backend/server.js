@@ -59,7 +59,7 @@ app.post('/api/todos', async (req, res) => {
 // BUG #3: Missing DELETE endpoint - but test expects it!
 // STUDENT TODO: Implement DELETE /api/todos/:id endpoint
 // DELETE todo
-app.delete('/api/todos/:id', async (req, res) => {
+app.delete('api/todos/:id', async (req, res) => {
    try {
       const { id } = req.params;
       const result = await pool.query('DELETE FROM todos WHERE id = $1 RETURNING *', [id]);
